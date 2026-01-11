@@ -25,7 +25,7 @@ params.weight_safety = 2.0;
 
 fprintf('Running path planning...\n\n');
 
-[best_path, full_path, best_cost] = uav_path_planning(obstacles, start_point, end_point, params);
+[best_path, full_path, best_cost, cost_history] = uav_path_planning(obstacles, start_point, end_point, params);
 
 fprintf('\nVisualizing results...\n');
 visualize_path(full_path, obstacles, start_point, end_point, cost_history);

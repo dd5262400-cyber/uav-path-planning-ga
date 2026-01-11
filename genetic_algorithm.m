@@ -1,4 +1,4 @@
-function [best_path, best_cost, best_generation] = genetic_algorithm(params, obstacles, start_point, end_point)
+function [best_path, best_cost, best_generation, cost_history] = genetic_algorithm(params, obstacles, start_point, end_point)
     params = validate_params(params);
     
     pop_size = params.pop_size;

@@ -1,4 +1,4 @@
-function [best_path, full_path, best_cost] = uav_path_planning(obstacles, start_point, end_point, params)
+function [best_path, full_path, best_cost, cost_history] = uav_path_planning(obstacles, start_point, end_point, params)
     if nargin < 4
         params = struct();
     end
@@ -9,7 +9,7 @@ function [best_path, full_path, best_cost] = uav_path_planning(obstacles, start_
     fprintf('Number of Obstacles: %d\n', size(obstacles, 1));
     fprintf('\n');
     
-    [best_path, best_cost, best_generation] = genetic_algorithm(params, obstacles, start_point, end_point);
+    [best_path, best_cost, best_generation, cost_history] = genetic_algorithm(params, obstacles, start_point, end_point);
     
     num_waypoints = length(best_path) / 3;
     waypoints = reshape(best_path, 3, num_waypoints)';
