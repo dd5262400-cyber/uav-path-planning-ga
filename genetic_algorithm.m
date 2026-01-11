@@ -1,4 +1,4 @@
-function [best_path, best_cost, best_generation, cost_history] = genetic_algorithm(params, obstacles, start_point, end_point)
+function [best_path, best_cost, best_generation, cost_history] = genetic_algorithm(params, buildings, start_point, end_point)
     params = validate_params(params);
     
     pop_size = params.pop_size;
@@ -17,7 +17,7 @@ function [best_path, best_cost, best_generation, cost_history] = genetic_algorit
     cost_history = zeros(max_gen, 1);
     
     for gen = 1:max_gen
-        costs = evaluate_population(population, obstacles, start_point, end_point, params);
+        costs = evaluate_population(population, buildings, start_point, end_point, params);
         
         [current_best_cost, best_idx] = min(costs);
         current_best_path = population(best_idx, :);
@@ -79,16 +79,16 @@ function population = initialize_population(pop_size, num_waypoints, bounds)
     end
 end
 
-function costs = evaluate_population(population, obstacles, start_point, end_point, params)
+function costs = evaluate_population(population, buildings, start_point, end_point, params)
     pop_size = size(population, 1);
     costs = zeros(pop_size, 1);
     
     for i = 1:pop_size
-        costs(i) = fitness_function(population(i, :), obstacles, start_point, end_point, params);
+        costs(i) = fitness_function(population(i, :), buildings, start_point, end_point, params);
     end
 end
 
-function cost = fitness_function(path, obstacles, start_point, end_point, params)
+function cost = fitness_function(path, buildings, start_point, end_point, params)
     num_waypoints = length(path) / 3;
     waypoints = reshape(path, 3, num_waypoints)';
     
@@ -96,7 +96,7 @@ function cost = fitness_function(path, obstacles, start_point, end_point, params
     
     cost_distance = calculate_path_distance(full_path);
     cost_smoothness = calculate_smoothness(full_path);
-    cost_safety = calculate_safety_cost(full_path, obstacles);
+    cost_safety = calculate_safety_cost(full_path, buildings);
     
     cost = params.weight_distance * cost_distance + ...
            params.weight_smoothness * cost_smoothness + ...
@@ -120,23 +120,82 @@ function smoothness = calculate_smoothness(path)
     end
 end
 
-function safety_cost = calculate_safety_cost(path, obstacles)
+function safety_cost = calculate_safety_cost(path, buildings)
     safety_cost = 0;
     for i = 1:size(path, 1)-1
         segment_start = path(i, :);
         segment_end = path(i+1, :);
         
-        for j = 1:size(obstacles, 1)
-            obstacle_center = obstacles(j, 1:3);
-            obstacle_radius = obstacles(j, 4);
+        for j = 1:size(buildings, 1)
+            building_center = buildings(j, 1:2);
+            building_base = buildings(j, 3);
+            building_width = buildings(j, 4);
+            building_depth = buildings(j, 5);
+            building_height = buildings(j, 6);
             
-            dist = point_to_segment_distance(obstacle_center, segment_start, segment_end);
-            
-            if dist < obstacle_radius
-                safety_cost = safety_cost + (obstacle_radius - dist)^2 * 100;
+            if segment_intersects_building(segment_start, segment_end, building_center, building_base, building_width, building_depth, building_height)
+                safety_cost = safety_cost + 1000;
+            else
+                dist = min_distance_to_building(segment_start, segment_end, building_center, building_base, building_width, building_depth, building_height);
+                if dist < 5
+                    safety_cost = safety_cost + (5 - dist)^2 * 50;
+                end
             end
         end
     end
+end
+
+function intersects = segment_intersects_building(p1, p2, center, base, width, depth, height)
+    min_x = center(1) - width/2;
+    max_x = center(1) + width/2;
+    min_y = center(2) - depth/2;
+    max_y = center(2) + depth/2;
+    min_z = base;
+    max_z = base + height;
+    
+    if (p1(1) >= min_x && p1(1) <= max_x && ...
+        p1(2) >= min_y && p1(2) <= max_y && ...
+        p1(3) >= min_z && p1(3) <= max_z)
+        intersects = true;
+        return;
+    end
+    
+    if (p2(1) >= min_x && p2(1) <= max_x && ...
+        p2(2) >= min_y && p2(2) <= max_y && ...
+        p2(3) >= min_z && p2(3) <= max_z)
+        intersects = true;
+        return;
+    end
+    
+    intersects = false;
+end
+
+function dist = min_distance_to_building(p1, p2, center, base, width, depth, height)
+    min_x = center(1) - width/2;
+    max_x = center(1) + width/2;
+    min_y = center(2) - depth/2;
+    max_y = center(2) + depth/2;
+    min_z = base;
+    max_z = base + height;
+    
+    corners = [
+        min_x, min_y, min_z;
+        max_x, min_y, min_z;
+        min_x, max_y, min_z;
+        max_x, max_y, min_z;
+        min_x, min_y, max_z;
+        max_x, min_y, max_z;
+        min_x, max_y, max_z;
+        max_x, max_y, max_z
+    ];
+    
+    min_dist = Inf;
+    for i = 1:size(corners, 1)
+        dist = point_to_segment_distance(corners(i, :), p1, p2);
+        min_dist = min(min_dist, dist);
+    end
+    
+    dist = min_dist;
 end
 
 function dist = point_to_segment_distance(point, seg_start, seg_end)
